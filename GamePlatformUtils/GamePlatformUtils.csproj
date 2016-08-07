@@ -45,6 +45,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Steam\SteamGame.cs" />
     <Compile Include="Steam\Steam.cs" />
+    <Compile Include="Steam\SteamUser.cs" />
     <Compile Include="Steam\Utils.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>

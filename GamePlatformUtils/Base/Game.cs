@@ -21,7 +21,7 @@ namespace GamePlatformUtils
 
         public string InstallDirectory { get; set; }
 
-        public long Size { get; set; }
+        public ulong Size { get; set; }
 
         public virtual void Reload()
         {

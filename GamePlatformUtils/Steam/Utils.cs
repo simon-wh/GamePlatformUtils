@@ -7,103 +7,109 @@ using System.Threading.Tasks;
 
 namespace GamePlatformUtils.Steam
 {
-    public class KeyValue
+    public interface IKeyValue
     {
-        public Dictionary<string, object> Items { get { return _items; } }
+        string Key { get; set; }
+    }
 
-        private Dictionary<string, object> _items = new Dictionary<string, object>();
-        public KeyValue(Stream instream)
+    public class KeyValueAttribute : IKeyValue
+    {
+        public string Key { get; set; }
+
+        public string Value { get; set; }
+
+        public KeyValueAttribute(string key, string val)
         {
-            using (StreamReader sr = new StreamReader(instream))
-            {
-                while (!sr.EndOfStream)
-                {
-                    //Attempt to read the item key
-                    object keyValue = ReadValue(sr);
-                    if (keyValue != null)
-                        _items.Add(((string)keyValue).ToLowerInvariant(), ReadValue(sr));
+            this.Key = key;
+            this.Value = val;
+        }
+    }
 
-                    //Skip over any whitespace characters to get to next value
-                    while (char.IsWhiteSpace((char)sr.Peek()))
-                        sr.Read();
-                }
-            }
-            instream.Close();
+    public class KeyValueTable : IKeyValue
+    {
+        public string Key { get; set; }
+
+        public Dictionary<string, KeyValueAttribute> Attributes { get; set; }
+
+        public Dictionary<string, KeyValueTable> SubTables { get; set; }
+
+        public KeyValueTable()
+        {
+            this.Attributes = new Dictionary<string, KeyValueAttribute>();
+            this.SubTables = new Dictionary<string, KeyValueTable>();
         }
 
-        private object ReadValue(StreamReader instream)
+        public KeyValueTable(StreamReader str, bool sub = false) : this()
+        {
+            this.ReadTable(str);
+        }
+
+        private void EatWhiteSpace(StreamReader str)
+        {
+            //Skip over any whitespace characters to get to next value
+            while (char.IsWhiteSpace((char)str.Peek()))
+                str.Read();
+        }
+
+        public void Read(StreamReader str)
+        {
+            this.ReadItem(str);
+        }
+
+        private object ReadValue(StreamReader str)
         {
             object returnValue = null;
 
-            //Skip over any whitespace characters to get to next value
-            while (char.IsWhiteSpace((char)instream.Peek()))
-                instream.Read();
+            this.EatWhiteSpace(str);
 
-            char peekchar = (char)instream.Peek();
+            char peekchar = (char)str.Peek();
 
             if (peekchar.Equals('{'))
-                returnValue = ReadSubValues(instream);
+                returnValue = new KeyValueTable(str);
             else if (peekchar.Equals('/'))
             {
                 //Comment, read until end of line
-                instream.ReadLine();
+                str.ReadLine();
             }
             else
-                returnValue = ReadString(instream);
+                returnValue = ReadString(str);
 
             return returnValue;
         }
 
-        private string ReadString(StreamReader instream)
+        private Dictionary<char, char> escape_characters = new Dictionary<char, char>{
+            { 'r', '\r' },
+            { 'n', '\n' },
+            { 't', '\t' },
+            { '\'', '\'' },
+            {'"', '"' },
+            {'\\', '\\' },
+            {'b', '\b' },
+            {'f', '\f' },
+            {'v', '\v' }
+        };
+
+        private string ReadString(StreamReader str)
         {
             StringBuilder builder = new StringBuilder();
 
-            bool isQuote = ((char)instream.Peek()).Equals('"');
+            bool isQuote = ((char)str.Peek()).Equals('"');
 
             if (isQuote)
-                instream.Read();
+                str.Read();
 
-            for (char chr = (char)instream.Read(); !instream.EndOfStream; chr = (char)instream.Read())
+            for (char chr = (char)str.Read(); !str.EndOfStream; chr = (char)str.Read())
             {
 
-                if (isQuote && chr.Equals('"') ||
-                    !isQuote && char.IsWhiteSpace(chr)) //Arrived at end of string
+                if ((isQuote && chr.Equals('"')) || (!isQuote && char.IsWhiteSpace(chr))) //Arrived at end of string
                     break;
 
                 if (chr.Equals('\\')) //Fix up escaped characters
                 {
-                    char escape = (char)instream.Read();
+                    char escape = (char)str.Read();
 
-                    switch(escape)
-                    {
-                        case 'r':
-                            builder.Append('\r');
-                            break;
-                        case 'n':
-                            builder.Append('\n');
-                            break;
-                        case 't':
-                            builder.Append('\t');
-                            break;
-                        case '\'':
-                            builder.Append('\'');
-                            break;
-                        case '"':
-                            builder.Append('"');
-                            break;
-                        case '\\':
-                            builder.Append('\\');
-                            break;
-                        case 'b':
-                            builder.Append('\b');
-                            break;
-                        case 'f':
-                            builder.Append('\f');
-                            break;
-                        case 'v':
-                            builder.Append('\v');
-                            break;
-                    }
+                    if (escape_characters.ContainsKey(escape))
+                        builder.Append(escape_characters[escape]);
                 }
                 else
                     builder.Append(chr);
@@ -113,32 +119,104 @@ namespace GamePlatformUtils.Steam
             return builder.ToString();
         }
 
-        private Dictionary<string, object> ReadSubValues(StreamReader instream)
+        private void ReadTable(StreamReader str)
         {
-            Dictionary<string, object> subValues = new Dictionary<string, object>();
-
             //Read first {
-            instream.Read();
+            str.Read();
 
-            //Seek to next data
-            while (char.IsWhiteSpace((char)instream.Peek()))
-                instream.Read();
+            this.EatWhiteSpace(str);
 
-            while (!((char)instream.Peek()).Equals('}'))
+            while (!((char)str.Peek()).Equals('}'))
             {
-                object keyValue = ReadValue(instream);
-                if (keyValue != null)
-                    subValues.Add(((string)keyValue).ToLowerInvariant(), ReadValue(instream));
-
-                //Seek to next data
-                while (char.IsWhiteSpace((char)instream.Peek()))
-                    instream.Read();
+                this.ReadItem(str);
             }
 
             //Read last }
-            instream.Read();
+            str.Read();
+        }
 
-            return subValues;
+        private void ReadItem(StreamReader str)
+        {
+            string key = ReadValue(str) as string;
+            if (key != null)
+            {
+                key = key.ToLowerInvariant();
+                object val = ReadValue(str);
+
+                IKeyValue key_val;
+
+                if (val is string)
+                    key_val = new KeyValueAttribute(key, (string)val);
+                else
+                    key_val = val as IKeyValue;
+
+                if (key_val != null)
+                {
+                    key_val.Key = key;
+                    if (key_val is KeyValueTable)
+                        SubTables.Add(key, (KeyValueTable)key_val);
+                    else if (key_val is KeyValueAttribute)
+                        Attributes.Add(key, (KeyValueAttribute)key_val);
+                }
+            }
+            this.EatWhiteSpace(str);
+        }
+
+        public bool TryGetAttribute(string key, out KeyValueAttribute att)
+        {
+            if (this.Attributes.ContainsKey(key))
+            {
+                att = this.Attributes[key];
+                return true;
+            }
+
+            att = null;
+            return false;
+        }
+
+        public IKeyValue Child(string name)
+        {
+            if (this.SubTables.ContainsKey(name))
+                return this.SubTables[name];
+            else if (this.Attributes.ContainsKey(name))
+                return this.Attributes[name];
+
+
+            return null;
+        }
+    }
+
+    public class KeyValue
+    {
+        public KeyValueTable RootNode { get; set; }
+
+        public KeyValue(string path)
+        {
+            if (File.Exists(path))
+            {
+                using (StreamReader str = new StreamReader(path))
+                    this.Read(str);
+            }
+            else
+            {
+                throw new FileNotFoundException("The passed path does not exist!");
+            }
+        }
+
+        public KeyValue(Stream instream)
+        {
+            using (StreamReader str = new StreamReader(instream))
+                this.Read(str);
+        }
+
+        private void Read(StreamReader str)
+        {
+            RootNode = new KeyValueTable();
+            while (!str.EndOfStream)
+            {
+                //Attempt to read the item key
+                RootNode.Read(str);
+            }
         }
     }
 

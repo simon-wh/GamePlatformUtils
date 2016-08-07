@@ -9,6 +9,29 @@ namespace GamePlatformUtils.Steam
 {
     public class Steam : Platform
     {
+        public event EventHandler LoggedInUserChanged;
+
+        private SteamUser _LoggedInUser;
+
+        public SteamUser LoggedInUser {
+            get
+            {
+                return _LoggedInUser;
+            }
+            protected set
+            {
+                bool changed = false;
+
+                if (value != _LoggedInUser)
+                    changed = true;
+
+                _LoggedInUser = value;
+
+                if (changed)
+                    LoggedInUserChanged?.Invoke(this, new EventArgs());
+            }
+        }
+
         private List<string> _LibraryFolders = new List<string>();
 
         public List<string> LibraryFolders { get { return _LibraryFolders; } set { _LibraryFolders = value; } }
@@ -142,13 +165,11 @@ namespace GamePlatformUtils.Steam
 
         public void LoadAdditionalLibraries(string lib_path)
         {
-            Dictionary<string, object> libraries = new KeyValue(
-                                new FileStream(lib_path, FileMode.Open, FileAccess.Read)
-                                ).Items["libraryfolders"] as Dictionary<string, object>;
+            KeyValueTable libraries = new KeyValue(new FileStream(lib_path, FileMode.Open, FileAccess.Read)).RootNode.SubTables["libraryfolders"];
 
-            for (int i = 1; libraries?.ContainsKey(i.ToString()) ?? false; i++)
+            for (int i = 1; libraries?.Attributes?.ContainsKey(i.ToString()) ?? false; i++)
             {
-                string add_lib_path = Path.Combine(libraries[i.ToString()] as string, Utils.IsLinux ? "steamapps" : "SteamApps");
+                string add_lib_path = Path.Combine(libraries.Attributes[i.ToString()].Value, Utils.IsLinux ? "steamapps" : "SteamApps");
                 if (!this.LibraryFolders.Contains(add_lib_path))
                     this.LoadGames(add_lib_path);
             }
