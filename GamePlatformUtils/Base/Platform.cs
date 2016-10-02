@@ -17,7 +17,7 @@ namespace GamePlatformUtils
         public string InstallPath { get; set; }
 
         protected Dictionary<string, Game> _Games = new Dictionary<string, Game>();
-        public Dictionary<string, Game> Games { get { return _Games; } set { _Games = value; } }
+        public Dictionary<string, Game> Games { get { return this._Games; } set { this._Games = value; } }
 
         public Platform()
         {

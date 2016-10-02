@@ -108,8 +108,8 @@ namespace GamePlatformUtils.Steam
                 {
                     char escape = (char)str.Read();
 
-                    if (escape_characters.ContainsKey(escape))
-                        builder.Append(escape_characters[escape]);
+                    if (this.escape_characters.ContainsKey(escape))
+                        builder.Append(this.escape_characters[escape]);
                 }
                 else
                     builder.Append(chr);
@@ -154,9 +154,9 @@ namespace GamePlatformUtils.Steam
                 {
                     key_val.Key = key;
                     if (key_val is KeyValueTable)
-                        SubTables.Add(key, (KeyValueTable)key_val);
+                        this.SubTables.Add(key, (KeyValueTable)key_val);
                     else if (key_val is KeyValueAttribute)
-                        Attributes.Add(key, (KeyValueAttribute)key_val);
+                        this.Attributes.Add(key, (KeyValueAttribute)key_val);
                 }
             }
             this.EatWhiteSpace(str);
@@ -211,11 +211,11 @@ namespace GamePlatformUtils.Steam
 
         private void Read(StreamReader str)
         {
-            RootNode = new KeyValueTable();
+            this.RootNode = new KeyValueTable();
             while (!str.EndOfStream)
             {
                 //Attempt to read the item key
-                RootNode.Read(str);
+                this.RootNode.Read(str);
             }
         }
     }

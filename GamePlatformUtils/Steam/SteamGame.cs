@@ -42,14 +42,14 @@ namespace GamePlatformUtils.Steam
 
         public new SteamGameStatus Status
         {
-            get { return _Status; }
+            get { return this._Status; }
             set
             {
                 bool changed = false;
-                if (value != _Status)
+                if (value != this._Status)
                     changed = true;
 
-                _Status = value;
+                this._Status = value;
                 if (changed)
                     this.StatusChanged?.Invoke(this, new EventArgs());
             }
@@ -59,7 +59,7 @@ namespace GamePlatformUtils.Steam
 
         public SteamGame(string acf_path)
         {
-            ACF = acf_path;
+            this.ACF = acf_path;
             this.LoadACF();
         }
 
@@ -70,11 +70,11 @@ namespace GamePlatformUtils.Steam
 
         public void LoadACF()
         {
-            if (ACF == null)
+            if (this.ACF == null)
                 return;
 
             KeyValueTable acf;
-            using (FileStream file = new FileStream(ACF, FileMode.Open, FileAccess.Read))
+            using (FileStream file = new FileStream(this.ACF, FileMode.Open, FileAccess.Read))
                 acf = new KeyValue(file).RootNode.SubTables["appstate"];
 
             if (acf != null)
@@ -87,7 +87,7 @@ namespace GamePlatformUtils.Steam
                     this.Title = attr.Value;
 
                 if (acf.TryGetAttribute("installdir", out attr))
-                    this.InstallDirectory = Path.Combine(Path.GetDirectoryName(ACF), "common", attr.Value);
+                    this.InstallDirectory = Path.Combine(Path.GetDirectoryName(this.ACF), "common", attr.Value);
 
                 if (acf.TryGetAttribute("sizeondisk", out attr))
                 {

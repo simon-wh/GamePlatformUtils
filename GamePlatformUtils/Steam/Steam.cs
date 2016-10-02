@@ -16,16 +16,16 @@ namespace GamePlatformUtils.Steam
         public SteamUser LoggedInUser {
             get
             {
-                return _LoggedInUser;
+                return this._LoggedInUser;
             }
             protected set
             {
                 bool changed = false;
 
-                if (value != _LoggedInUser)
+                if (value != this._LoggedInUser)
                     changed = true;
 
-                _LoggedInUser = value;
+                this._LoggedInUser = value;
 
                 if (changed)
                     LoggedInUserChanged?.Invoke(this, new EventArgs());
@@ -34,20 +34,20 @@ namespace GamePlatformUtils.Steam
 
         private List<string> _LibraryFolders = new List<string>();
 
-        public List<string> LibraryFolders { get { return _LibraryFolders; } set { _LibraryFolders = value; } }
+        public List<string> LibraryFolders { get { return this._LibraryFolders; } set { this._LibraryFolders = value; } }
 
         public event EventHandler BigPictureStateChanged;
 
         private bool _BigPictureOpen = false;
 
-        public bool BigPictureOpen { get { return _BigPictureOpen; }
+        public bool BigPictureOpen { get { return this._BigPictureOpen; }
             set
             {
                 bool changed = false;
-                if (value != _BigPictureOpen)
+                if (value != this._BigPictureOpen)
                     changed = true;
 
-                _BigPictureOpen = value;
+                this._BigPictureOpen = value;
 
                 if (changed)
                     BigPictureStateChanged?.Invoke(this, new EventArgs());
@@ -106,10 +106,10 @@ namespace GamePlatformUtils.Steam
                 FileSystemWatcher watcher = new FileSystemWatcher(library, "appmanifest_*.acf") {
                     EnableRaisingEvents = true
                 };
-                watcher.Changed += LibraryAppFileChanged;
-                watcher.Created += LibraryAppFileChanged;
+                watcher.Changed += this.LibraryAppFileChanged;
+                watcher.Created += this.LibraryAppFileChanged;
                 watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
-                Watchers.Add(watcher);
+                this.Watchers.Add(watcher);
             }
 
             string main_path = Path.Combine(this.InstallPath, Utils.IsLinux ? "steamapps" : "SteamApps");
@@ -117,10 +117,10 @@ namespace GamePlatformUtils.Steam
             {
                 EnableRaisingEvents = true
             };
-            lib_watcher.Changed += LibraryFileChanged;
-            lib_watcher.Created += LibraryFileChanged;
+            lib_watcher.Changed += this.LibraryFileChanged;
+            lib_watcher.Created += this.LibraryFileChanged;
             lib_watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
-            Watchers.Add(lib_watcher);
+            this.Watchers.Add(lib_watcher);
 
         }
 
