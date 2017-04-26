@@ -1,18 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 
 namespace GamePlatformUtils.Steam
 {
     public class Steam : Platform
     {
-        public event EventHandler LoggedInUserChanged;
-
         private SteamUser _LoggedInUser;
 
+        /// <summary>
+        /// SteamUser instance for the user that is logged into the current Steam instance
+        /// </summary>
         public SteamUser LoggedInUser {
             get
             {
@@ -21,105 +25,148 @@ namespace GamePlatformUtils.Steam
             protected set
             {
                 bool changed = false;
-
-                if (value != this._LoggedInUser)
+                var previous = this._LoggedInUser;
+                if (!value.Equals(previous))
                     changed = true;
 
                 this._LoggedInUser = value;
 
                 if (changed)
-                    LoggedInUserChanged?.Invoke(this, new EventArgs());
+                    InvokePropertyChanged(previous, value);
             }
         }
 
         private List<string> _LibraryFolders = new List<string>();
 
-        public List<string> LibraryFolders { get { return this._LibraryFolders; } set { this._LibraryFolders = value; } }
 
-        public event EventHandler BigPictureStateChanged;
+        public List<string> LibraryFolders { get { return this._LibraryFolders; } set { this._LibraryFolders = value; } }
 
         private bool _BigPictureOpen = false;
 
+        /// <summary>
+        /// Bool that indicates whether Steam Big Picture is open and in Focus
+        /// </summary>
         public bool BigPictureOpen { get { return this._BigPictureOpen; }
             set
             {
                 bool changed = false;
-                if (value != this._BigPictureOpen)
+                bool previous = this._BigPictureOpen;
+                if (value != previous)
                     changed = true;
 
                 this._BigPictureOpen = value;
 
                 if (changed)
-                    BigPictureStateChanged?.Invoke(this, new EventArgs());
+                    InvokePropertyChanged(previous, value);
+            }
+        }
+
+        private string _Language = null;
+
+        public string Language {
+            get { return _Language; }
+            set {
+                bool changed = false;
+                var previous = this._Language;
+                if (value != previous)
+                    changed = true;
+                _Language = value;
+                if (changed)
+                    InvokePropertyChanged(previous, value);
             }
         }
 
         public Steam() : base()
         {
-            
-        }
-
-        protected string RetrieveInstallPath()
-        {
-            string path = null;
-
-            if (!Utils.IsLinux)
-            {
-                string[] reg_values = { @"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam", @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam" };
-                foreach(string reg in reg_values)
-                {
-                    try
-                    {
-                        string install_path = (string)Microsoft.Win32.Registry.GetValue(reg, "InstallPath", null);
-                        if (!string.IsNullOrWhiteSpace(install_path) && File.Exists(Path.Combine(install_path, "Steam.exe")))
-                        {
-                            path = install_path;
-                            break;
-                        }
-                    }
-                    catch(Exception exc) { }
-                }
-            }
-
-            return path;
-        }
-
-        public override void LoadData()
-        {
-            if (string.IsNullOrWhiteSpace(this.InstallPath))
-                this.InstallPath = this.RetrieveInstallPath();
-
-            base.LoadData();
             this.SetupUpdateListeners();
         }
 
-        public void LoadRegistryValues()
+        protected override void CheckIfInstalled()
         {
+            string path = null;
 
+            //TODO: Implement alternative discovery method for linux
+#if LINUX
+#else
+            string[] reg_values = { @"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam", @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam" };
+            foreach (string reg in reg_values)
+            {
+                try
+                {
+                    string install_path = (string)Registry.GetValue(reg, "InstallPath", null);
+                    if (!string.IsNullOrWhiteSpace(install_path) && File.Exists(Path.Combine(install_path, "Steam.exe")))
+                    {
+                        path = install_path;
+                        break;
+                    }
+                }
+                catch (Exception exc) { }
+            }
+#endif
+            InstallPath = path;
+            this.IsInstalled = !string.IsNullOrWhiteSpace(path);
+        }
+
+        protected override void LoadData()
+        {
+            base.LoadData();
+            this.LoadRegistryValues();
+        }
+
+        private void LoadRegistryValues()
+        {
+            this.CheckMainRegistryValues();
+        }
+
+        private void CheckMainRegistryValues()
+        {
+            int big_picture = (int)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "BigPictureInForeground", null);
+            this.BigPictureOpen = big_picture != 0;
+            this.Language = (string)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "Language", null);
+        }
+
+        private void CheckActiveProcessRegistryValues()
+        {
+            int pid = (int)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "pid", 0);
+            ActiveProcess = pid != 0 ? Process.GetProcessById(pid) : null;
+            int activeUserID = (int)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam\ActiveProcess", "ActiveUser", 0);
+            this.LoggedInUser = new SteamUser(activeUserID);
         }
 
         private List<FileSystemWatcher> Watchers = new List<FileSystemWatcher>();
+        private List<RegistryUtils.RegistryMonitor> RegWatchers = new List<RegistryUtils.RegistryMonitor>();
         protected virtual void SetupUpdateListeners()
         {
+            //TODO: Implement alternative method for monitoring linux values. ~Monitor changes to files stored in /home/.steam/ (from memory) as they are the equivalent of the registry entries.
+#if LINUX
+#else
+            RegistryUtils.RegistryMonitor reg_watcher = new RegistryUtils.RegistryMonitor(RegistryHive.CurrentUser, @"SOFTWARE\Valve\Steam");
+            //reg_watcher.RegChangeNotifyFilter = RegistryUtils.RegChangeNotifyFilter.Value;
+            reg_watcher.RegChanged += (s,e) => CheckMainRegistryValues();
+            reg_watcher.Start();
+            RegWatchers.Add(reg_watcher);
+
+            reg_watcher = new RegistryUtils.RegistryMonitor(RegistryHive.CurrentUser, @"SOFTWARE\Valve\Steam\ActiveProcess");
+            //reg_watcher.RegChangeNotifyFilter = RegistryUtils.RegChangeNotifyFilter.Value;
+            reg_watcher.RegChanged += (s, e) => CheckActiveProcessRegistryValues();
+            reg_watcher.Start();
+            RegWatchers.Add(reg_watcher);
+#endif
+
             foreach (string library in this.LibraryFolders)
             {
-                FileSystemWatcher watcher = new FileSystemWatcher(library, "appmanifest_*.acf") {
-                    EnableRaisingEvents = true
-                };
-                watcher.Changed += this.LibraryAppFileChanged;
-                watcher.Created += this.LibraryAppFileChanged;
-                watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
-                this.Watchers.Add(watcher);
+                FileSystemWatcher appwatcher = new FileSystemWatcher(library, "appmanifest_*.acf")
+                { EnableRaisingEvents = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size };
+                appwatcher.Changed += this.LibraryAppFileChanged;
+                appwatcher.Created += this.LibraryAppFileChanged;
+                this.Watchers.Add(appwatcher);
             }
 
-            string main_path = Path.Combine(this.InstallPath, Utils.IsLinux ? "steamapps" : "SteamApps");
+            string main_path = Path.Combine(this.InstallPath, SteamConstants.SteamAppsDirectory);
             FileSystemWatcher lib_watcher = new FileSystemWatcher(main_path, "libraryfolders.vdf")
-            {
-                EnableRaisingEvents = true
-            };
+            { EnableRaisingEvents = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size };
             lib_watcher.Changed += this.LibraryFileChanged;
             lib_watcher.Created += this.LibraryFileChanged;
-            lib_watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
             this.Watchers.Add(lib_watcher);
 
         }
@@ -142,6 +189,7 @@ namespace GamePlatformUtils.Steam
                 }
             }
         }
+
         private void LibraryFileChanged(object sender, FileSystemEventArgs e)
         {
             if (e.ChangeType.HasFlag(WatcherChangeTypes.Changed) || e.ChangeType.HasFlag(WatcherChangeTypes.Created))
@@ -150,32 +198,30 @@ namespace GamePlatformUtils.Steam
             }
         }
 
-        public override void LoadGames()
+        protected override void LoadGames()
         {
             this.Games.Clear();
 
-            string main_path = Path.Combine(this.InstallPath, Utils.IsLinux ? "steamapps" : "SteamApps");
+            string main_path = Path.Combine(this.InstallPath, SteamConstants.SteamAppsDirectory);
             this.LoadGames(main_path);
-            string lib_path;
-            if (File.Exists(lib_path = Path.Combine(main_path, "libraryfolders.vdf")))
-            {
+            string lib_path = Path.Combine(main_path, "libraryfolders.vdf");
+            if (File.Exists(lib_path))
                 this.LoadAdditionalLibraries(lib_path);
-            }
         }
 
-        public void LoadAdditionalLibraries(string lib_path)
+        protected void LoadAdditionalLibraries(string lib_path)
         {
             KeyValueTable libraries = new KeyValue(new FileStream(lib_path, FileMode.Open, FileAccess.Read)).RootNode.SubTables["libraryfolders"];
 
             for (int i = 1; libraries?.Attributes?.ContainsKey(i.ToString()) ?? false; i++)
             {
-                string add_lib_path = Path.Combine(libraries.Attributes[i.ToString()].Value, Utils.IsLinux ? "steamapps" : "SteamApps");
+                string add_lib_path = Path.Combine(libraries.Attributes[i.ToString()].Value, SteamConstants.SteamAppsDirectory);
                 if (!this.LibraryFolders.Contains(add_lib_path))
                     this.LoadGames(add_lib_path);
             }
         }
 
-        public void LoadGames(string path)
+        protected void LoadGames(string path)
         {
             if (path == null || !Directory.Exists(path))
                 return;

@@ -1,6 +1,10 @@
-﻿using System;
+﻿using GamePlatformUtils.Utils;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,14 +14,36 @@ namespace GamePlatformUtils
         public Game Game { get; set; }
     }
 
-    public class Platform
+    public class Platform : NotifyPropertyChangedEx
     {
         public event EventHandler<GameEventArgs> GameAdded;
 
-        public string InstallPath { get; set; }
+        public string InstallPath { get; protected set; }
+
+        private Process _ActiveProcess = null;
+
+        public Process ActiveProcess { get { return _ActiveProcess; }
+            protected set {
+                bool changed = false;
+                var previous = _ActiveProcess;
+                if (value != previous)
+                    changed = true;
+
+                _ActiveProcess = value;
+                if (changed)
+                    InvokePropertyChanged(previous, value);
+            }
+        }
+
+        public bool Running { get { return ActiveProcess != null; } }
 
         protected Dictionary<string, Game> _Games = new Dictionary<string, Game>();
         public Dictionary<string, Game> Games { get { return this._Games; } set { this._Games = value; } }
+
+        /// <summary>
+        /// Indicates whether the specified platform is installed. This must be true if this instance is going to be used.
+        /// </summary>
+        public bool IsInstalled { get; protected set; }
 
         public Platform()
         {
@@ -29,15 +55,24 @@ namespace GamePlatformUtils
             this.GameAdded?.Invoke(this, e);
         }
 
-        public virtual void LoadData()
+        protected virtual void CheckIfInstalled()
         {
+            IsInstalled = false;
+        }
+
+        protected virtual void LoadData()
+        {
+            this.CheckIfInstalled();
+
+            if (!IsInstalled)
+                return;
+
             this.LoadGames();
         }
 
-        public virtual void LoadGames()
+        protected virtual void LoadGames()
         {
 
         }
-
     }
 }
