@@ -14,7 +14,7 @@ namespace GamePlatformUtils
         public Game Game { get; set; }
     }
 
-    public class Platform : NotifyPropertyChangedEx
+    public class Platform<TGame> : NotifyPropertyChangedEx
     {
         public event EventHandler<GameEventArgs> GameAdded;
 
@@ -37,8 +37,8 @@ namespace GamePlatformUtils
 
         public bool Running { get { return ActiveProcess != null; } }
 
-        protected Dictionary<string, Game> _Games = new Dictionary<string, Game>();
-        public Dictionary<string, Game> Games { get { return this._Games; } set { this._Games = value; } }
+        protected Dictionary<string, TGame> _Games = new Dictionary<string, TGame>();
+        public Dictionary<string, TGame> Games { get { return this._Games; } set { this._Games = value; } }
 
         /// <summary>
         /// Indicates whether the specified platform is installed. This must be true if this instance is going to be used.

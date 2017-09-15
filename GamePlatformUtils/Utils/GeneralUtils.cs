@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace GamePlatformUtils
 {
-    public static class GenericUtils
+    public static class GeneralUtils
     {
 #if !LINUX
         public static bool IsAdministrator()

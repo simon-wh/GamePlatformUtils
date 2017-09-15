@@ -7,10 +7,11 @@ using System.Management;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Win32;
+using GamePlatformUtils.Steam.Utils;
 
 namespace GamePlatformUtils.Steam
 {
-    public class Steam : Platform
+    public class Steam : Platform<SteamGame>
     {
         private SteamUser _LoggedInUser;
 
@@ -130,14 +131,14 @@ namespace GamePlatformUtils.Steam
             int pid = (int)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "pid", 0);
             ActiveProcess = pid != 0 ? Process.GetProcessById(pid) : null;
             int activeUserID = (int)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam\ActiveProcess", "ActiveUser", 0);
-            this.LoggedInUser = new SteamUser(activeUserID);
+            this.LoggedInUser = new SteamUser(this, activeUserID);
         }
 
         private List<FileSystemWatcher> Watchers = new List<FileSystemWatcher>();
         private List<RegistryUtils.RegistryMonitor> RegWatchers = new List<RegistryUtils.RegistryMonitor>();
         protected virtual void SetupUpdateListeners()
         {
-            //TODO: Implement alternative method for monitoring linux values. ~Monitor changes to files stored in /home/.steam/ (from memory) as they are the equivalent of the registry entries.
+            //TODO: Implement alternative method for monitoring linux values. ~Monitor changes to files stored in /home/.steam/ (AFAIK) as they are the equivalent of the registry entries.
 #if LINUX
 #else
             RegistryUtils.RegistryMonitor reg_watcher = new RegistryUtils.RegistryMonitor(RegistryHive.CurrentUser, @"SOFTWARE\Valve\Steam");
@@ -193,9 +194,7 @@ namespace GamePlatformUtils.Steam
         private void LibraryFileChanged(object sender, FileSystemEventArgs e)
         {
             if (e.ChangeType.HasFlag(WatcherChangeTypes.Changed) || e.ChangeType.HasFlag(WatcherChangeTypes.Created))
-            {
                 this.LoadAdditionalLibraries(e.FullPath);
-            }
         }
 
         protected override void LoadGames()

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GamePlatformUtils.Steam
+namespace GamePlatformUtils.Steam.Utils
 {
     public interface IKeyValue
     {
