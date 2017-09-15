@@ -73,8 +73,10 @@
     <Compile Include="Steam\SteamGame.cs" />
     <Compile Include="Steam\Steam.cs" />
     <Compile Include="Steam\SteamUser.cs" />
-    <Compile Include="Steam\Utils.cs" />
-    <Compile Include="Utils.cs" />
+    <Compile Include="Steam\Utils\KeyValue.cs" />
+    <Compile Include="Steam\Utils\SteamIDUtils.cs" />
+    <Compile Include="Utils\INotifyPropertyChangedEx.cs" />
+    <Compile Include="Utils\GeneralUtils.cs" />
     <Compile Include="Utils\RegistryWatcher.cs" />
   </ItemGroup>
   <ItemGroup>
