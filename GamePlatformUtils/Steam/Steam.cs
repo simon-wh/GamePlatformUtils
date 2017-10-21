@@ -121,21 +121,30 @@ namespace GamePlatformUtils.Steam
 
         private void CheckMainRegistryValues()
         {
+#if LINUX
+#else
             int big_picture = (int)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "BigPictureInForeground", null);
             this.BigPictureOpen = big_picture != 0;
             this.Language = (string)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "Language", null);
+#endif
         }
 
         private void CheckActiveProcessRegistryValues()
         {
+#if LINUX
+#else
             int pid = (int)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "pid", 0);
             ActiveProcess = pid != 0 ? Process.GetProcessById(pid) : null;
             int activeUserID = (int)Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam\ActiveProcess", "ActiveUser", 0);
             this.LoggedInUser = new SteamUser(this, activeUserID);
+#endif
         }
 
         private List<FileSystemWatcher> Watchers = new List<FileSystemWatcher>();
+#if LINUX
+#else
         private List<RegistryUtils.RegistryMonitor> RegWatchers = new List<RegistryUtils.RegistryMonitor>();
+#endif
         protected virtual void SetupUpdateListeners()
         {
             //TODO: Implement alternative method for monitoring linux values. ~Monitor changes to files stored in /home/.steam/ (AFAIK) as they are the equivalent of the registry entries.
