@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace GPUTest
 {
@@ -11,7 +12,14 @@ namespace GPUTest
     {
         static void Main(string[] args)
         {
-            Steam steam = new Steam();
+	    Steam steam;
+	    try {
+            	steam = new Steam();
+		Console.WriteLine(steam.InstallPath);
+	    }
+	    catch (FileNotFoundException exc){
+		Console.WriteLine("Steam install not found!");
+	    }
 
             Console.ReadKey();
         }
